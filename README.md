@@ -42,3 +42,7 @@ Using a Chrome profile other than `Default`: `export OFFICE_WEB_PROFILE="Profile
 - While a document is open in the web app, OneDrive keeps it locked, so removing the copy waits (up to ~20 min) until you close the window.
 - The editor page is not an official API: if Microsoft changes it, the extension buttons may need updates.
 - Unofficial tool, not affiliated with Microsoft.
+
+## License
+
+[MIT](LICENSE)
