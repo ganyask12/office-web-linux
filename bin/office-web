@@ -65,13 +65,25 @@ def reopen_existing(path):
     return True
 
 
+def display_name(path):
+    """Real file name (GVFS/Google Drive paths contain an ID instead of the name)."""
+    try:
+        r = subprocess.run(["gio", "info", "-a", "standard::display-name", path], capture_output=True, text=True, timeout=20)
+        for line in r.stdout.splitlines():
+            if "standard::display-name:" in line:
+                return line.split("standard::display-name:", 1)[1].strip()
+    except Exception:
+        pass
+    return os.path.basename(path)
+
+
 def cmd_open(path):
     if reopen_existing(path):
         return
     size = os.path.getsize(path)
     if size > MAX:
         raise RuntimeError(_("Файл більший за 250 МБ", "File is larger than 250 MB"))
-    name = os.path.basename(path)
+    name = display_name(path)
     tok = token()
     q = "/me/drive/root:/%s/%s:/content?@microsoft.graph.conflictBehavior=rename" % (FOLDER, urllib.parse.quote(name))
     item = call("PUT", q, open(path, "rb").read(), tok)
@@ -102,6 +114,10 @@ def pull(path, it):
         blob = r.read()
     if len(blob) != meta["size"]:
         raise RuntimeError(_("Розмір завантаженого файлу не збігається — нічого не змінено.", "Downloaded size does not match - nothing was changed."))
+    if "/gvfs/" in path:  # Google Drive etc.: no atomic rename, write in place
+        with open(path, "wb") as f:
+            f.write(blob)
+        return
     with tempfile.NamedTemporaryFile(dir=os.path.dirname(path), delete=False, prefix=".office-web-") as t:
         t.write(blob)
     if os.path.exists(path):

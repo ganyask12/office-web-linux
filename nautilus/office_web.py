@@ -20,6 +20,15 @@ def real_path(f):
         return None
 
 
+def display_name(f):
+    """Human file name; on Google Drive (GVFS) get_name() is an ID, the real name is standard::display-name."""
+    try:
+        info = f.get_location().query_info("standard::display-name", Gio.FileQueryInfoFlags.NONE, None)
+        return info.get_display_name() or ""
+    except Exception:
+        return ""
+
+
 class CopyAsPath(GObject.GObject, Nautilus.MenuProvider):
     """Windows 11 style 'Copy as path': copies "/full/path" (quoted), one per line."""
 
@@ -74,7 +83,7 @@ class OpenInOffice(GObject.GObject, Nautilus.MenuProvider):
         if len(files) != 1:
             return []
         path = real_path(files[0])
-        if not path or not path.lower().endswith(OFFICE_EXT):
+        if not path or not (path.lower().endswith(OFFICE_EXT) or display_name(files[0]).lower().endswith(OFFICE_EXT)):
             return []
         it = Nautilus.MenuItem(name="OpenInOffice::open", label=_("Відкрити в Office (веб)", "Open in Office (web)"))
         it.connect("activate", self._run, "open", path)
