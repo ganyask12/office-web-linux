@@ -1,0 +1,163 @@
+#!/usr/bin/env python3
+"""office-web open <файл> — завантажити файл в OneDrive і відкрити у веб-Office.
+office-web save <файл> — забрати зміни з OneDrive, замінити файл на ПК, прибрати копію з OneDrive (кошик).
+Вхід бере з rclone (remote «od»)."""
+import sys, os, re, time, json, subprocess, urllib.request, urllib.parse, urllib.error, tempfile, shutil
+
+API = "https://graph.microsoft.com/v1.0"
+FOLDER = "_pc-temp"
+STATE = os.path.expanduser("~/.local/share/office-web/state.json")
+MAX = 250 * 1024 * 1024
+
+
+def notify(text, bad=False):
+    print(text)
+    subprocess.run(["notify-send", "-i", "dialog-error" if bad else "dialog-information", "Office (веб)", text], check=False)
+
+
+def token():
+    # будь-яка команда rclone оновлює прострочений токен у конфігу
+    subprocess.run(["rclone", "lsd", "od:", "--max-depth", "0"], capture_output=True, check=False)
+    cfg = json.loads(subprocess.run(["rclone", "config", "dump"], capture_output=True, text=True, check=True).stdout)
+    return json.loads(cfg["od"]["token"])["access_token"]
+
+
+def call(method, path, data=None, tok=None, raw=False):
+    req = urllib.request.Request(API + path, data=data, method=method, headers={"Authorization": "Bearer " + tok})
+    try:
+        with urllib.request.urlopen(req, timeout=300) as r:
+            body = r.read()
+            return body if raw else (json.loads(body) if body else {})
+    except urllib.error.HTTPError as e:
+        raise RuntimeError("OneDrive %s: %s" % (e.code, e.read()[:200].decode(errors="replace")))
+
+
+def load():
+    try:
+        return json.load(open(STATE))
+    except Exception:
+        return {}
+
+
+def store(s):
+    json.dump(s, open(STATE, "w"), ensure_ascii=False, indent=1)
+
+
+def reopen_existing(path):
+    """Файл уже відкривався: якщо копія ще в OneDrive — відкриваємо її знову, без дубля."""
+    it = load().get(path)
+    if not it:
+        return False
+    try:
+        call("GET", "/me/drive/items/%s?select=id" % it["id"], tok=token())
+    except RuntimeError:
+        s = load(); s.pop(path, None); store(s)  # копію вже видалено — завантажимо знову
+        return False
+    subprocess.Popen(["google-chrome-stable", "--profile-directory=" + os.environ.get("OFFICE_WEB_PROFILE", "Default"), "--app=" + it["webUrl"]])
+    notify("«%s» відкрито знову (та сама копія в OneDrive)." % os.path.basename(path))
+    return True
+
+
+def cmd_open(path):
+    if reopen_existing(path):
+        return
+    size = os.path.getsize(path)
+    if size > MAX:
+        raise RuntimeError("Файл більший за 250 МБ")
+    name = os.path.basename(path)
+    tok = token()
+    q = "/me/drive/root:/%s/%s:/content?@microsoft.graph.conflictBehavior=rename" % (FOLDER, urllib.parse.quote(name))
+    item = call("PUT", q, open(path, "rb").read(), tok)
+    s = load()
+    s[path] = {"id": item["id"], "name": item["name"], "webUrl": item["webUrl"]}
+    store(s)
+    subprocess.Popen(["google-chrome-stable", "--profile-directory=" + os.environ.get("OFFICE_WEB_PROFILE", "Default"), "--app=" + item["webUrl"]])
+    notify("«%s» відкрито у веб-Office. Коли закінчите — «Зберегти зміни з Office (веб)»." % name)
+
+
+def norm(x):
+    return re.sub(r"[^0-9a-f]", "", x.lower())
+
+
+def entry_by_resid(resid):
+    for path, it in load().items():
+        if norm(resid) and (norm(resid) in norm(it["id"]) or norm(resid) in norm(it["webUrl"])):
+            return path, it
+    raise RuntimeError("Не знайшов, який файл на ПК відповідає цьому документу (відкривайте через «Відкрити в Office (веб)»).")
+
+
+def pull(path, it):
+    """Скачати актуальну версію з OneDrive і атомарно підмінити файл за path."""
+    tok = token()
+    meta = call("GET", "/me/drive/items/%s?select=size,@microsoft.graph.downloadUrl" % it["id"], tok=tok)
+    # пряме посилання на файл не потребує токена (з токеном воно відхиляє запит)
+    with urllib.request.urlopen(meta["@microsoft.graph.downloadUrl"], timeout=300) as r:
+        blob = r.read()
+    if len(blob) != meta["size"]:
+        raise RuntimeError("Розмір завантаженого файлу не збігається — нічого не змінено.")
+    with tempfile.NamedTemporaryFile(dir=os.path.dirname(path), delete=False, prefix=".office-web-") as t:
+        t.write(blob)
+    if os.path.exists(path):
+        shutil.copymode(path, t.name)
+    os.replace(t.name, path)
+
+
+def cleanup(path, it):
+    """Прибрати копію з OneDrive (кошик). Поки документ відкритий, OneDrive блокує — чекаємо."""
+    name = os.path.basename(path)
+    for i in range(300):  # до ~20 хвилин
+        try:
+            call("DELETE", "/me/drive/items/%s" % it["id"], tok=token())
+            break
+        except RuntimeError as e:
+            if "423" not in str(e) or i == 299:
+                raise RuntimeError("«%s» оновлено на ПК, але з OneDrive не видалено: %s" % (name, e))
+            if i == 0:
+                notify("«%s» оновлено на ПК. Закрийте вікно документа — тоді приберу копію з OneDrive." % name)
+            time.sleep(4)
+    s = load()
+    s.pop(path, None)
+    store(s)
+    notify("«%s»: копію прибрано з OneDrive." % name)
+
+
+def cmd_save(path):
+    s = load()
+    if path not in s:
+        raise RuntimeError("Цей файл не відкривався через «Відкрити в Office (веб)».")
+    pull(path, s[path])
+    cleanup(path, s[path])
+
+
+def cmd_save_resid(resid):
+    path, it = entry_by_resid(resid)
+    pull(path, it)
+    notify("«%s» збережено на ПК (замінено оригінал)." % os.path.basename(path))
+
+
+def cmd_saveas_resid(resid):
+    path, it = entry_by_resid(resid)
+    r = subprocess.run(["zenity", "--file-selection", "--save", "--confirm-overwrite", "--title=Зберегти як",
+                        "--filename=" + path], capture_output=True, text=True)
+    new = r.stdout.strip()
+    if r.returncode != 0 or not new:
+        return
+    pull(new, it)
+    notify("Збережено як «%s». Оригінал на ПК не змінено." % os.path.basename(new))
+
+
+def cmd_finish_resid(resid):
+    path, _ = entry_by_resid(resid)
+    cmd_save(path)
+
+
+if __name__ == "__main__":
+    try:
+        cmds = {"open": cmd_open, "save": cmd_save}
+        if sys.argv[1] in cmds:
+            cmds[sys.argv[1]](os.path.realpath(sys.argv[2]))
+        else:
+            {"save-resid": cmd_save_resid, "saveas-resid": cmd_saveas_resid, "finish-resid": cmd_finish_resid}[sys.argv[1]](sys.argv[2])
+    except Exception as e:
+        notify(str(e), True)
+        sys.exit(1)

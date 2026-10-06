@@ -1,0 +1,25 @@
+{
+  "manifest_version": 3,
+  "name": "Office ПК-міст",
+  "version": "3.0",
+  "description": "Кнопки «Зберегти на ПК», «Зберегти як…» і «Готово» у вікні Word/Excel online для файлів, відкритих через office-web.",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAr0A/D+z12Fzn8+9wxLL6mswfOHjGQbUiNNNga7h8cdtkMqLd9D5/0lnA2LjCXm6rXlTFAtOjn+IjGxCxSDM12i52yzFTbBcAJ1yxAlDWKnR2Tp7Iw/6nqpbzc1xKimygtawqJfLX4rzEa5XFn72VcI6z9mjO4tFS8fEMi83V++G7/2Rh6V0KeLYawC+Jfr6vYTYdkYVvhVAUsnZSlGPZ8FhPfB5CMW3M2l7Q9xMHHtEMK0KcfSSP0gduvt4ab13iynT/wGaaVs+zTtJN7vGlF495Q5jVkZ9c0yRgaRf2EHPkKipMQXmhnFNhxU6zwGw1ghSU77Kzv9HA3I0TR5vheQIDAQAB",
+  "permissions": [
+    "nativeMessaging"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://onedrive.live.com/*/_layouts/15/*",
+        "https://onedrive.live.com/edit*"
+      ],
+      "js": [
+        "doc-ui.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}
