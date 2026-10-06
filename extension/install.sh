@@ -1,5 +1,5 @@
 #!/bin/bash
-# Реєструє native host для Chrome. Запуск: ./install.sh
+# Registers the native messaging host for Chrome. Run: ./install.sh
 set -e
 D="$(cd "$(dirname "$0")" && pwd)"
 for B in google-chrome chromium; do
@@ -9,5 +9,5 @@ for B in google-chrome chromium; do
   cat > "$T/com.officebridge.host.json" <<J
 {"name":"com.officebridge.host","description":"Office PC bridge","path":"$D/native-host.py","type":"stdio","allowed_origins":["chrome-extension://blfnkkdanndahgadgefkodagendjhcoc/"]}
 J
-  echo "Зареєстровано для $B"
+  echo "Registered for $B"
 done

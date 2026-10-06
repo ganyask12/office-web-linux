@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Native messaging host: запускає office-web (збереження документа з веб-Office) і одразу відповідає."""
+"""Native messaging host: starts office-web (save a document from Office on the web) and replies at once."""
 import sys, struct, json, re, subprocess, os
 
 OPS = {"save-resid", "saveas-resid", "finish-resid"}
@@ -21,4 +21,4 @@ if m.get("op") in OPS and re.fullmatch(r"[0-9A-Za-z!%._-]{1,200}", m.get("resid"
                      stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     send({"ok": True})
 else:
-    send({"error": "Невідома команда або не вдалось визначити документ"})
+    send({"error": "Unknown command or document could not be identified"})

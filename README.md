@@ -1,44 +1,44 @@
 # office-web-linux
 
-Відкривайте файли `.docx` / `.xlsx` / `.pptx` з Linux у **веб-версії Microsoft Office** (Word/Excel/PowerPoint online), а зміни повертайте назад на ПК — без Wine і без реєстрації застосунку в Azure.
+**English** · [Українська](README.uk.md)
 
-*English: open local Office files in Microsoft 365 web apps on Linux and write the edits back to the original file. No Wine, no Azure app registration (uses rclone's login).*
+> **In short:** a small toolkit that gives Linux something it lacks out of the box — open a local Word / Excel / PowerPoint file in the **Microsoft Office web apps** and save the edits back to the very same file. Nautilus menu items + a Python script + a Chrome extension. No Wine, no Azure app registration.
 
-## Як це працює
+## How it works
 
-| Дія | Що відбувається |
+| Action | What happens |
 |---|---|
-| ПКМ на файлі → **Відкрити в Office (веб)** | файл вантажиться в `OneDrive/_pc-temp`, документ відкривається у Chrome (режим застосунку) |
-| ПКМ → **Зберегти зміни з Office (веб)** | актуальна версія скачується, оригінал на ПК підміняється, копія йде з OneDrive в кошик |
-| Кнопки в кутку вікна Word/Excel online (розширення Chrome) | **Зберегти на ПК** · **Зберегти як…** · **Готово** (зберегти + прибрати копію з OneDrive після закриття вікна) |
+| Right-click a file → **Open in Office (web)** | the file is uploaded to `OneDrive/_pc-temp` and opens in Chrome (app window) |
+| Right-click → **Save changes from Office (web)** | the current version is downloaded, the original file is replaced, the OneDrive copy goes to the recycle bin |
+| Buttons in the corner of the Word/Excel online window (Chrome extension) | **Save to PC** · **Save as…** · **Done** (save + remove the OneDrive copy once the window is closed) |
 
-Вхід у OneDrive бере з **rclone** (використовується його вбудований застосунок Microsoft); завантаження й скачування йдуть напряму через Microsoft Graph API.
+Sign-in is borrowed from **rclone** (it uses rclone's built-in Microsoft app); uploads and downloads go straight through the Microsoft Graph API. Messages and menu labels follow the system language (Ukrainian or English).
 
-## Вимоги
+## Requirements
 
-- Debian/Ubuntu + GNOME, Nautilus із `python3-nautilus`
+- Debian/Ubuntu with GNOME, Nautilus with `python3-nautilus`
 - `rclone`, Google Chrome, `zenity`, `notify-send`
-- акаунт OneDrive (personal)
+- a personal OneDrive account
 
-## Встановлення
+## Install
 
 ```bash
 sudo apt install rclone python3-nautilus zenity libnotify-bin
 ./install.sh
-rclone config create od onedrive      # увійти в акаунт Microsoft у браузері
+rclone config create od onedrive      # sign in to your Microsoft account in the browser
 nautilus -q
 ```
 
-Потім у Chrome: `chrome://extensions` → «Режим розробника» → «Завантажити розпаковане» → папка `extension/`.
-ID розширення фіксований (`blfnkkdanndahgadgefkodagendjhcoc`) — від нього залежить native host.
+Then in Chrome: `chrome://extensions` → enable *Developer mode* → *Load unpacked* → pick the `extension/` folder.
+The extension ID is pinned (`blfnkkdanndahgadgefkodagendjhcoc`) — the native host depends on it.
 
-Інший профіль Chrome, ніж `Default`: `export OFFICE_WEB_PROFILE="Profile 1"`.
+Using a Chrome profile other than `Default`: `export OFFICE_WEB_PROFILE="Profile 1"`.
 
-> Примітка: rclone 1.60 з Debian 13 не вміє завантажувати в OneDrive (помилка `Unauthenticated`), тому `office-web` використовує rclone лише для входу й оновлення токена.
+> Note: Debian 13's rclone 1.60 cannot upload to OneDrive (`Unauthenticated` error), so `office-web` uses rclone only for sign-in and token refresh.
 
-## Обмеження
+## Limitations
 
-- Файли до 250 МБ.
-- Поки документ відкритий у веб-Office, OneDrive блокує видалення копії — `office-web` чекає до ~20 хв, поки закриєте вікно.
-- Доступ до сторінки редактора не офіційний API: після змін Microsoft кнопки розширення можуть потребувати правок.
-- Це неофіційний інструмент, не пов'язаний з Microsoft.
+- Files up to 250 MB.
+- While a document is open in the web app, OneDrive keeps it locked, so removing the copy waits (up to ~20 min) until you close the window.
+- The editor page is not an official API: if Microsoft changes it, the extension buttons may need updates.
+- Unofficial tool, not affiliated with Microsoft.

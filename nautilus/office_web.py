@@ -5,7 +5,7 @@ from gi.repository import Nautilus, GObject, Gdk, Gio
 
 
 def real_path(f):
-    """Шлях файлу, також у «Недавніх» і пошуку (recent:// -> file://)."""
+    """Real path of a file, also in Recent and search views (recent:// -> file://)."""
     loc = f.get_location()
     if loc is None:
         return None
@@ -31,7 +31,7 @@ class CopyAsPath(GObject.GObject, Nautilus.MenuProvider):
         return [p for p in map(real_path, files) if p]
 
     def _item(self, name, paths):
-        item = Nautilus.MenuItem(name=name, label="Копіювати як шлях")
+        item = Nautilus.MenuItem(name=name, label=_("Копіювати як шлях", "Copy as path"))
         item.connect("activate", self._copy, paths)
         return [item]
 
@@ -47,6 +47,12 @@ class CopyAsPath(GObject.GObject, Nautilus.MenuProvider):
 import json
 import os
 import subprocess
+
+UK = (os.environ.get("LC_ALL") or os.environ.get("LC_MESSAGES") or os.environ.get("LANG") or "").lower().startswith("uk")
+
+
+def _(uk, en):
+    return uk if UK else en
 
 OFFICE_EXT = (".docx", ".doc", ".xlsx", ".xls", ".pptx", ".ppt", ".odt", ".ods", ".odp", ".csv")
 TOOL = os.path.expanduser("~/.local/bin/office-web")
@@ -70,11 +76,11 @@ class OpenInOffice(GObject.GObject, Nautilus.MenuProvider):
         path = real_path(files[0])
         if not path or not path.lower().endswith(OFFICE_EXT):
             return []
-        it = Nautilus.MenuItem(name="OpenInOffice::open", label="Відкрити в Office (веб)")
+        it = Nautilus.MenuItem(name="OpenInOffice::open", label=_("Відкрити в Office (веб)", "Open in Office (web)"))
         it.connect("activate", self._run, "open", path)
         items = [it]
         if path in _open_state():
-            sv = Nautilus.MenuItem(name="OpenInOffice::save", label="Зберегти зміни з Office (веб)")
+            sv = Nautilus.MenuItem(name="OpenInOffice::save", label=_("Зберегти зміни з Office (веб)", "Save changes from Office (web)"))
             sv.connect("activate", self._run, "save", path)
             items.append(sv)
         return items
