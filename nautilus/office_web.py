@@ -63,7 +63,7 @@ UK = (os.environ.get("LC_ALL") or os.environ.get("LC_MESSAGES") or os.environ.ge
 def _(uk, en):
     return uk if UK else en
 
-OFFICE_EXT = (".docx", ".doc", ".xlsx", ".xls", ".pptx", ".ppt", ".odt", ".ods", ".odp", ".csv")
+OFFICE_EXT = (".docx", ".doc", ".xlsx", ".xls", ".pptx", ".ppt", ".odt", ".ods", ".odp", ".csv", ".xlsm", ".xlsb", ".docm", ".pptm", ".dotx", ".xltx")
 TOOL = os.path.expanduser("~/.local/bin/office-web")
 STATE = os.path.expanduser("~/.local/share/office-web/state.json")
 
